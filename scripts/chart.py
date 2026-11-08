@@ -89,7 +89,7 @@ DOC_CSS = BASE_CSS + """
   .layout { display: flex; gap: 24px; max-width: 1440px; margin: 0 auto; }
   /* 注意:不能设 align-items:flex-start,否则侧栏高度=目录自身高,
      sticky 没有可滑动空间,滚动后目录会消失 */
-  .toc-wrap { flex: 0 0 280px; }
+  .toc-wrap { flex: 0 0 280px; min-width: 0; }
   .toc { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto;
          background: #fff; border: 1px solid rgba(35,54,111,0.12); border-radius: 8px;
          padding: 14px 16px; font-size: 12px; }
@@ -115,8 +115,12 @@ DOC_CSS = BASE_CSS + """
   .bridge { font-size: 12px; color: #4f5f7f; background: #f7fafc;
             border: 1px dashed rgba(35,54,111,0.18); border-radius: 4px;
             padding: 8px 12px; margin: 0 0 14px; }
-  /* 窄屏退回单列:目录回到顶部 */
-  @media (max-width: 920px) {
+  /* 中等宽度:侧栏收一点,仍保持左右两栏 */
+  @media (max-width: 1100px) {
+    .toc-wrap { flex-basis: 230px; }
+  }
+  /* 手机窄屏才退回单列:目录回到顶部 */
+  @media (max-width: 640px) {
     .layout { flex-direction: column; }
     .toc-wrap { flex: none; width: 100%; }
     .toc { position: static; max-height: none; }
