@@ -1,0 +1,43 @@
+# ===================================================================
+# data-guide-agent · 集中配置
+# 所有脚本统一读取本文件;路径、连接、开关一律在此登记,不写死进代码。
+# 可移植性:整份 skill 拷贝到其他机器时,只需修改本文件;
+#   所有键都可用环境变量覆盖(优先级:环境变量 > config.local.yaml > 本文件):
+#   DGA_DB_HOST / DGA_DB_PORT / DGA_DB_NAME / DGA_DB_USER / DGA_DB_PASSWORD
+#   DGA_DB_TYPE / DGA_TABLE / DGA_OUTPUT_DIR / DGA_PROACTIVE_MENU
+# 🔐 口令等本机差异不要写在这里(本文件入 git):写进 config.local.yaml,
+#    它会在加载时递归覆盖同名键,且已进 .gitignore。
+# ===================================================================
+
+datasource:
+  # 适配器类型:db_adapter.py 按此名注册/查找实现。
+  # 目前内置 postgres;新增数据源(sqlite/duckdb/mysql)需在 db_adapter.py
+  # 实现同名接口并注册,然后改这里的 type 即可切换。
+  type: postgres
+  host: "127.0.0.1"          # 本机/内网 PG 地址;真实地址写进 config.local.yaml
+  port: 5432
+  name: analytics_demo
+  user: demo_reader          # 只读账号
+  password: ""               # ⚠️ 留空;真实口令写进 config.local.yaml 或 DGA_DB_PASSWORD
+  sslmode: prefer
+  connect_timeout: 10
+  # 业务事实表(脱敏保单明细,一行 = 保单 × 产品)
+  table: policy_detail
+  # 行数校验基准(doctor.py 用;换库时按实际行数改)
+  verify_total_rows: 721080
+
+output:
+  # 产物目录:相对「当前工作目录」(harness 在哪调用就落在哪)
+  dir: ./output
+  # 产物文件名自动加日期前缀
+  date_prefix: true
+
+demo:
+  # 演示模式:true = 对话开场/意图模糊时主动亮主题包菜单(引导感最强)
+  # false = 仅在用户意图模糊时才推荐
+  proactive_menu: true
+
+time:
+  # 时间锚点:auto = 取数据库 MAX(trans_date) 作为"今天"(演示数据不更新时仍稳定)
+  # 也可固定为 'YYYY-MM-DD'
+  anchor: auto

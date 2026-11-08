@@ -1,0 +1,183 @@
+# ===================================================================
+# 指标卡片库 —— 引导的事实依据
+# 每张卡片:定义/口径/别名/SQL 取数规则/可下钻维度/关联指标/教练式追问话术
+# 开放式结构:新增指标在 metrics 下追加一张卡片即可,query.py 自动可查。
+# 口径红线(与 semantic-qa schema.md 一致):
+#   - 默认承保(if_)口径;用户明确说"受理"才用 sm_
+#   - 金额一律元→万元(ROUND(x/10000,2));比率 ×100 保留 1 位
+#   - 派生比率必须 SUM/SUM 现算,禁止对单行比率取平均
+# ===================================================================
+
+# 可下钻维度字典(菜单引导的选项来源)
+dims:
+  branch:
+    name: 分公司
+    column: branch_name
+    values: [Branch_01, Branch_03, Branch_09, Branch_10, Branch_11, Branch_12, Branch_16]
+  channel:
+    name: 渠道
+    column: channel_name
+    values: [个险, 银保, 经代, 法人业务, 其他]
+  product_category:
+    name: 产品类别
+    column: product_category
+    values: [保障类, 储蓄类]
+  single_premium_flag:
+    name: 趸交/期交
+    column: single_premium_flag
+    values: [趸缴, 期缴]
+  participating_flag:
+    name: 分红属性
+    column: participating_flag
+    values: [分红, 非分红]
+  value_product_flag:
+    name: 高价值产品
+    column: value_product_flag
+    values: [高价值, 非高价值]
+  payment_frequency:
+    name: 缴费频率
+    column: payment_frequency
+    values: [趸缴, 年缴, 半年缴, 月缴]
+
+metrics:
+
+  - id: ape
+    name: APE
+    aliases: [年化保费, 年化]
+    unit: 万元
+    caliber: both              # both = 受理/承保双口径,默认承保
+    column_if: if_ape
+    column_sm: sm_ape
+    definition: 年化保费(期交按年折算,趸交不年化的对立面——APE 是年化指标)
+    agg: sum
+    dims: [branch, channel, product_category, single_premium_flag, participating_flag, value_product_flag, payment_frequency]
+    related: [vnb, std_premium, fyp]
+    followups:
+      - "要不要按{dim}拆一下,看看 APE 的结构?"
+      - "可以结合 VNB 看看这些 APE 的价值含量(NBM)。"
+
+  - id: vnb
+    name: VNB
+    aliases: [新业务价值, 价值]
+    unit: 万元
+    caliber: both
+    column_if: if_vnb
+    column_sm: sm_vnb
+    definition: 新业务价值,衡量新单未来利润现值
+    agg: sum
+    dims: [branch, channel, product_category, single_premium_flag, participating_flag, value_product_flag]
+    related: [nbm, ape, std_premium]
+    followups:
+      - "要不要看看 NBM,判断价值率是高是低?"
+      - "可以按{dim}拆一下,找价值贡献的来源。"
+
+  - id: std_premium
+    name: 标准保费
+    aliases: [标保, 标保保费]
+    unit: 万元
+    caliber: both
+    column_if: if_std_premium
+    column_sm: sm_std_premium
+    definition: 标准保费,折标后的保费规模指标(考核常用)
+    agg: sum
+    dims: [branch, channel, product_category, single_premium_flag, participating_flag, value_product_flag, payment_frequency]
+    related: [std_rate, ape, fyp]
+    followups:
+      - "要不要看看标保率,判断业务质量?"
+      - "可以按{dim}拆一下,看标保来自哪里。"
+
+  - id: fyp
+    name: FYP
+    aliases: [首年保费, 首年实付保费, 首年实收]
+    unit: 万元
+    caliber: both
+    column_if: if_fyp
+    column_sm: sm_fyp
+    definition: 首年实付保费,不年化
+    agg: sum
+    dims: [branch, channel, product_category, single_premium_flag, participating_flag, payment_frequency]
+    related: [ape, std_premium, count]
+    followups:
+      - "要不要看趸交占比?FYP 里趸交高了会拉低持续性。"
+      - "可以对比 APE,看缴费结构的年化效率。"
+
+  - id: count
+    name: 件数
+    aliases: [保单件数, 件均前边的件数]
+    unit: 件
+    caliber: both
+    column_if: if_count
+    column_sm: sm_count
+    definition: 保单件数
+    agg: sum
+    dims: [branch, channel, product_category, single_premium_flag, participating_flag, value_product_flag]
+    related: [ape, fyp]
+    followups:
+      - "件数配合 APE 可以看件均,要不要算一下?"
+
+  - id: nb_acq_cost
+    name: 新单创费
+    aliases: [创费, 新业务获取成本]
+    unit: 万元
+    caliber: if_only           # 仅承保口径
+    column_if: if_nb_acq_cost
+    definition: 新单获取成本(仅承保口径)
+    agg: sum
+    dims: [branch, channel, product_category]
+    related: [fyc, vnb, fyp]
+    followups:
+      - "创费配合 VNB 可以看投入产出,要不要对比?"
+
+  - id: fyc
+    name: 首年佣金
+    aliases: [FYC, 佣金]
+    unit: 万元
+    caliber: if_only
+    column_if: if_fyc
+    definition: 首年佣金(仅承保口径)
+    agg: sum
+    dims: [branch, channel, product_category]
+    related: [fyp, nb_acq_cost]
+    followups:
+      - "FYC/FYP 是佣金率,要不要按渠道对比一下?"
+
+  - id: nbm
+    name: NBM
+    aliases: [新业务价值率, 价值率]
+    unit: "%"
+    caliber: both
+    derived: true
+    formula_if: "ROUND(SUM(if_vnb)/NULLIF(SUM(if_ape),0)*100, 1)"
+    formula_sm: "ROUND(SUM(sm_vnb)/NULLIF(SUM(sm_ape),0)*100, 1)"
+    definition: 新业务价值率 = SUM(VNB)/SUM(APE),必须现算禁止平均
+    channel_scope: core3       # 全渠道只算 个险/银保/经代,除非用户明确单渠道
+    dims: [branch, channel, product_category, value_product_flag]
+    related: [vnb, ape]
+    followups:
+      - "NBM 偏低时,建议按产品类别拆一下,看是不是储蓄类占比太高。"
+
+  - id: std_rate
+    name: 标保率
+    aliases: [折标率]
+    unit: "%"
+    caliber: both
+    derived: true
+    formula_if: "ROUND(SUM(if_std_premium)/NULLIF(SUM(if_ape),0)*100, 1)"
+    formula_sm: "ROUND(SUM(sm_std_premium)/NULLIF(SUM(sm_ape),0)*100, 1)"
+    definition: 标保率 = SUM(标保)/SUM(APE),必须现算禁止平均
+    channel_scope: core3
+    dims: [branch, channel, product_category, single_premium_flag]
+    related: [std_premium, ape]
+    followups:
+      - "标保率可以看业务质量,要不要对比一下各渠道?"
+
+# 特殊业务定义(口径问答与模板查询共用)
+business_defs:
+  big_policy:
+    name: 个人大单
+    definition: 承保 APE ≥ 100000 元(10 万元)的保单
+    where: "if_ape >= 100000"
+  pending_uw:
+    name: 未到账未承保
+    definition: 已受理(受理日期非空)且未到账(到账日期空)且未承保(承保日期空或 2999-12-31)
+    where: "sm_date IS NOT NULL AND arrival_date IS NULL AND (if_date IS NULL OR if_date = '2999-12-31')"

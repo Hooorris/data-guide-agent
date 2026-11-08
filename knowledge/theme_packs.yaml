@@ -1,0 +1,93 @@
+# ===================================================================
+# 主题包 —— 引导链最上游:用户"想看数据但不知道看什么"时的方向菜单
+# 每个主题包 = 一个经营视角 → 推荐指标集 + 开场话术 + 默认分析路径
+# 开放式结构:新增主题直接在 packs 下追加;指标 id 必须在 metric_cards.yaml 存在
+# ===================================================================
+
+packs:
+
+  - id: scale
+    name: 规模进度
+    icon: "📈"
+    description: 保费规模与任务进度:卖了多少、进度如何
+    metrics: [fyp, ape, std_premium, count]
+    entry_questions:
+      - "帮我看看最近的经营情况"
+      - "业绩怎么样"
+      - "任务完成得如何"
+    suggested_flow:
+      - "先看全公司{period}的 FYP / 标保总量"
+      - "再按分公司对比,看谁在拉动、谁掉队"
+      - "需要的话看月度趋势,判断节奏"
+
+  - id: value
+    name: 价值质量
+    icon: "💎"
+    description: 业务质量与价值贡献:卖得好不好、值不值钱
+    metrics: [vnb, nbm, std_rate, std_premium]
+    entry_questions:
+      - "业务质量如何"
+      - "价值贡献怎么样"
+      - "是不是在卖低价值业务"
+    suggested_flow:
+      - "先看全公司{period}的 VNB 与 NBM"
+      - "NBM 异常时按产品类别/渠道拆解找原因"
+      - "可对比各分公司 NBM 找标杆与短板"
+
+  - id: structure
+    name: 结构分析
+    icon: "🧩"
+    description: 业务构成:渠道/产品/缴费方式的分布与变化
+    metrics: [fyp, ape, std_premium]
+    default_dims: [channel, product_category, single_premium_flag]
+    entry_questions:
+      - "业务结构怎么样"
+      - "渠道分布如何"
+      - "趸交占比高不高"
+    suggested_flow:
+      - "先按渠道看{period} FYP 占比"
+      - "再看趸交/期交结构,判断续期持续性"
+      - "需要的话下钻产品类别(保障/储蓄)"
+
+  - id: branch_ops
+    name: 机构经营
+    icon: "🏢"
+    description: 分公司横向对比:排名、对比、找短板
+    metrics: [fyp, ape, vnb, std_premium, nbm]
+    entry_questions:
+      - "各分公司情况"
+      - "哪个机构拖后腿"
+      - "分支机构排名"
+    suggested_flow:
+      - "先看{period}各分公司核心指标排名"
+      - "锁定关注的机构,下钻其渠道/产品结构"
+      - "可对比 2~3 家机构找差距"
+
+  - id: cost
+    name: 成本效益
+    icon: "💰"
+    description: 费用投入与产出:佣金、创费花得值不值
+    metrics: [fyc, nb_acq_cost, fyp, vnb]
+    entry_questions:
+      - "费用投入情况"
+      - "佣金支出多少"
+      - "投入产出怎么样"
+    suggested_flow:
+      - "先看{period} FYC / 新单创费总量(仅承保口径)"
+      - "按渠道对比费用水平"
+      - "配合 FYP/VNB 看投入产出比"
+
+  - id: pipeline_risk
+    name: 在途风险
+    icon: "⚠️"
+    description: 未落地业务与大单:已受理未承保、大单情况
+    metrics: [ape, count]
+    special_defs: [pending_uw, big_policy]
+    entry_questions:
+      - "有多少保单还没承保"
+      - "在途业务什么情况"
+      - "最近有没有大单"
+    suggested_flow:
+      - "先看当前未到账未承保的件数与受理 APE"
+      - "按分公司/渠道定位卡单集中点"
+      - "需要的话看个人大单清单(APE≥10万)"
