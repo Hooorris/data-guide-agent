@@ -83,16 +83,31 @@ __CHARTJS_BLOCK____SCRIPT_BLOCK__
 
 # ---------------------------------------------------------------- 累积档案(同一会话多轮追加)
 DOC_CSS = BASE_CSS + """
-  .frame { max-width: 1060px; }
-  .toc { background: #f4f9fc; border: 1px solid rgba(35,54,111,0.10); border-radius: 6px;
-         padding: 10px 16px; margin-bottom: 8px; font-size: 12px; }
-  .toc b { font-size: 12px; color: #23366f; }
-  .toc ol { margin: 6px 0 0; padding-left: 20px; color: #7a86a3; }
-  .toc li { margin: 3px 0; }
-  .toc a { color: #2167ae; text-decoration: none; }
-  .toc a:hover { text-decoration: underline; }
+  body { padding: 24px; }
+  html { scroll-behavior: smooth; }
+  /* 左右两栏:左目录(粘性,随滚动高亮当前节),右分析正文 */
+  .layout { display: flex; gap: 24px; max-width: 1440px; margin: 0 auto; }
+  /* 注意:不能设 align-items:flex-start,否则侧栏高度=目录自身高,
+     sticky 没有可滑动空间,滚动后目录会消失 */
+  .toc-wrap { flex: 0 0 280px; }
+  .toc { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto;
+         background: #fff; border: 1px solid rgba(35,54,111,0.12); border-radius: 8px;
+         padding: 14px 16px; font-size: 12px; }
+  .toc b { font-size: 13px; color: #23366f; }
   .toc .meta { color: #7a86a3; font-size: 11px; }
-  section.sec { border-top: 1px solid rgba(35,54,111,0.10); margin-top: 20px; padding-top: 16px; }
+  .toc ol { margin: 8px 0 0; padding: 0; list-style: none; }
+  .toc li { margin: 0; }
+  .toc a { display: block; color: #4f5f7f; text-decoration: none; padding: 5px 8px;
+           border-radius: 4px; border-left: 2px solid transparent; line-height: 1.5; }
+  .toc a:hover { background: #eef6fc; color: #2167ae; }
+  .toc a.active { background: #eef6fc; color: #2167ae; border-left-color: #2167ae;
+                  font-weight: 600; }
+  .toc .tip { display: block; color: #7a86a3; font-size: 11px; margin-top: 2px;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .frame { flex: 1; min-width: 0; max-width: none; margin: 0; }
+  section.sec { border-top: 1px solid rgba(35,54,111,0.10); margin-top: 20px; padding-top: 16px;
+                scroll-margin-top: 24px; }
+  section.sec:first-of-type { border-top: none; margin-top: 0; }
   section.sec h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
   section.sec .step { font-size: 11px; color: #7a86a3; margin-bottom: 10px; }
   .totop { display: block; text-align: right; font-size: 11px; color: #7a86a3;
@@ -100,6 +115,12 @@ DOC_CSS = BASE_CSS + """
   .bridge { font-size: 12px; color: #4f5f7f; background: #f7fafc;
             border: 1px dashed rgba(35,54,111,0.18); border-radius: 4px;
             padding: 8px 12px; margin: 0 0 14px; }
+  /* 窄屏退回单列:目录回到顶部 */
+  @media (max-width: 920px) {
+    .layout { flex-direction: column; }
+    .toc-wrap { flex: none; width: 100%; }
+    .toc { position: static; max-height: none; }
+  }
 """
 
 DOC_TEMPLATE = """<!DOCTYPE html>
@@ -112,18 +133,38 @@ DOC_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<div class="frame">
-  <h1>__TITLE__</h1>
-  <div class="sub">__SUBTITLE__</div>
-  __TOC__
-  __SECTIONS__
-  <div class="foot">data-guide-agent · 数据源:脱敏保单明细库(演示数据) ·
-  同一份分析档案按轮次累积,越往下越细,不必逐个文件打开</div>
+<div class="layout">
+  <aside class="toc-wrap">
+    __TOC__
+  </aside>
+  <div class="frame">
+    <h1>__TITLE__</h1>
+    <div class="sub">__SUBTITLE__</div>
+    __SECTIONS__
+    <div class="foot">data-guide-agent · 数据源:脱敏保单明细库(演示数据) ·
+    同一份分析档案按轮次累积,越往下越细,左侧目录可点击跳转</div>
+  </div>
 </div>
-__CHARTJS_BLOCK____SCRIPT_BLOCK__
+__CHARTJS_BLOCK____SCRIPT_BLOCK____NAV_SCRIPT__
 </body>
 </html>
 """
+
+NAV_SCRIPT = """<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#s"]'));
+  if (!links.length) return;
+  var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function setActive(id) {
+    links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + id); });
+  }
+  if (!('IntersectionObserver' in window)) return;
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
+  }, { rootMargin: '-5% 0px -85% 0px' });
+  secs.forEach(function (s) { if (s) obs.observe(s); });
+})();
+</script>"""
 
 
 # ---------------------------------------------------------------- 解析与配置
@@ -402,8 +443,8 @@ def render_document(title: str, subtitle: str, sections: list[dict]) -> str:
             configs.append((i, cfg))
         tip = sec.get("headline") or sec.get("step") or ""
         tip = re.sub(r"<[^>]+>", "", str(tip))[:40]
-        toc_items.append(f'<li><a href="#s{i}">{i}. {sec.get("title", "")}</a>'
-                         f'<span class="meta"> · {tip}</span></li>')
+        toc_items.append(f'<li><a href="#s{i}"><b>{i}.</b> {sec.get("title", "")}'
+                         f'<span class="tip">{tip}</span></a></li>')
 
     toc = ('<div class="toc" id="top"><b>分析目录</b>'
            f'<span class="meta"> · 共 {len(sections)} 节,按轮次累积</span>'
@@ -426,7 +467,8 @@ def render_document(title: str, subtitle: str, sections: list[dict]) -> str:
             .replace("__TOC__", toc)
             .replace("__SECTIONS__", "".join(frags))
             .replace("__CHARTJS_BLOCK__", chartjs_block)
-            .replace("__SCRIPT_BLOCK__", script_block))
+            .replace("__SCRIPT_BLOCK__", script_block)
+            .replace("__NAV_SCRIPT__", NAV_SCRIPT))
 
 
 # ---------------------------------------------------------------- CLI

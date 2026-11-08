@@ -188,7 +188,7 @@ query.py --intent compare --metric std_premium --period 2026YTD --dim product_ca
   --bridge "在上节 -9.3% 的缺口里,储蓄类贡献 -14.6%、保障类 +5.9%"
 ```
 
-- 产物固定为 `output/<日期>_<session>_分析档案.html`,**顶部有目录导航、节间有衔接说明、每节自带结论条与回到目录**,用户只打开一个文件就能看完整条分析链。
+- 产物固定为 `output/<日期>_<session>_分析档案.html`,**左侧粘性目录(点击跳转+滚动高亮当前节)、节间有衔接说明、每节自带结论条与回到目录;窄屏自动退回单列**,用户只打开一个文件就能看完整条分析链。
 - **禁止**每轮 `--out` 出一个新文件让用户挨个点开;只有用户明确要"单独给我一份"时才用 `--out` 或省略 `--session`。
 - 手动/兜底章节用 `scripts/session_report.py --session <id> --append-section <json|文件|->` 追加,`--show` 看结构,`--reset` 清空重来。
 - **⚠️ 手工改档案的坑**:若用 Python 直接操作 `load_state()` 里的 `sections`(批量改写多节文案、修错字、统一口径),`save_state()` **只落 JSON 状态、不会重建 HTML**——必须紧接着显式调用 `build_html(state)`,否则用户打开的是旧文件(表现为:JSON 里 11 节、HTML 里还是 4 节)。`append_section()` 内部才会自动重建。标准写法:
