@@ -1,0 +1,57 @@
+# 复杂分析模板骨架(路径 B · 模板模式)
+#
+# 用途:入口分流器判进「复杂分析」后,按本骨架逐节推进。
+# - 每节出数后仍要停下确认(默认动作 = 继续下一节;可跳节 / 提前收尾)
+# - 章节顺序固定,保证输出稳定;optional: true 的节可跳过
+# - match: 报告生成时按小节标题关键词把 session 章节对号入座
+# - required: true 的节缺失 → final_report.py 自动回退档案模式
+
+template_name: 经营分析通用骨架
+version: 1
+
+summary:
+  # 执行摘要:最后一节走完(或用户提前收尾)时回填
+  # 一句总论 + 至多 3 个关键数,由 final_report.py --summary / --summary-points 传入
+  max_points: 3
+
+sections:
+  - key: surface
+    title: 表层盘子
+    required: true
+    match: [表层, 盘子, 规模, 起手, 总览]
+    goal: 规模多大、结构什么样、同比如何
+    suggest_intents: [single, compare, yoy, share]
+    note: 一个指标 + 一个维度 + 一个期间;起手必做
+
+  - key: period
+    title: 期间定位
+    required: false
+    match: [期间, 月度, 趋势, 节奏]
+    goal: 缺口集中在哪几个月
+    suggest_intents: [trend]
+    note: 缺口 100% 集中在少数月时直接说"断在 X~Y 月";未完整月单列
+
+  - key: dimension
+    title: 维度归因
+    required: false
+    match: [维度, 渠道, 机构, 分公司, 归因]
+    goal: 哪个渠道/机构拖的
+    suggest_intents: [compare, topn]
+    note: 同幅下跌=共性驱动;单点下跌=执行问题
+
+  - key: product_line
+    title: 产品线定位
+    required: false
+    optional: true
+    match: [品类, 产品, 缴费, 去留]
+    goal: 断在哪条产品线;必要时进产品去留(卖不动 vs 没得卖)
+    suggest_intents: [compare, share]
+    note: 缺口在期间层已 100% 解释时可跳过;产品代号须请业务回填
+
+  - key: conclusion
+    title: 结论与候选解释
+    required: true
+    match: [结论, 候选, 总结]
+    goal: 断在哪、断多深、什么形态 + 需业务确认的候选原因
+    suggest_intents: []
+    note: 不跨层推断"为什么";只给候选解释并请业务确认
