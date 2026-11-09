@@ -34,7 +34,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from db_adapter import get_adapter, load_config, load_knowledge  # noqa: E402
 
 INTENTS = ["menu", "single", "compare", "trend", "yoy", "share", "topn", "koujing"]
-CORE3 = ("个险", "银保", "经代")
+
+
+# ---------------------------------------------------------------- schema 映射(单一事实源 = metric_cards.yaml 的 meta 段)
+def meta_of(kb: dict) -> dict:
+    """schema 映射:换库时只需改 metric_cards.yaml 的 meta 段,本函数给出兼容默认值。"""
+    m = kb.get("meta") or {}
+    return {
+        "date_column": m.get("date_column", "trans_date"),
+        "branch_column": m.get("branch_column", "branch_name"),
+        "channel_column": m.get("channel_column", "channel_name"),
+        "core3_channels": m.get("core3_channels") or ["个险", "银保", "经代"],
+    }
 
 
 # ---------------------------------------------------------------- 指标菜单
@@ -122,29 +133,37 @@ def pick_caliber(card: dict, caliber: str | None) -> str:
 
 
 def scope_filter(card: dict, dim: str | None, branch: str | None,
-                 channel: str | None, dim_col: str | None = None) -> list[str]:
-    """WHERE 片段:NBM/标保率全渠道口径只算核心三渠道;分组时剔除空值分组。"""
+                 channel: str | None, dim_col: str | None = None,
+                 meta: dict | None = None) -> list[str]:
+    """WHERE 片段:NBM/标保率全渠道口径只算核心三渠道;分组时剔除空值分组。
+
+    meta = meta_of(kb);未传时退回旧默认(trans_date/branch_name/channel_name/个险银保经代),
+    兼容 report_teaser 等外部调用方(建议传入)。"""
+    meta = meta or meta_of({})
+    ch_col, br_col = meta["channel_column"], meta["branch_column"]
     wh = []
     if card.get("channel_scope") == "core3" and not channel and dim != "channel":
-        wh.append("channel_name IN ('个险','银保','经代')")
+        core3 = ",".join(f"'{c}'" for c in meta["core3_channels"])
+        wh.append(f"{ch_col} IN ({core3})")
     if branch:
         bs = ",".join(f"'{b.strip()}'" for b in branch.split(","))
-        wh.append(f"branch_name IN ({bs})")
+        wh.append(f"{br_col} IN ({bs})")
     if channel:
-        wh.append(f"channel_name = '{channel.strip()}'")
+        wh.append(f"{ch_col} = '{channel.strip()}'")
     if dim_col:
         wh.append(f"{dim_col} IS NOT NULL")
     return wh
 
 
-def period_where(start: str, end: str) -> str:
-    return f"trans_date >= '{start}' AND trans_date <= '{end}'"
+def period_where(start: str, end: str, meta: dict | None = None) -> str:
+    dc = (meta or meta_of({}))["date_column"]
+    return f"{dc} >= '{start}' AND {dc} <= '{end}'"
 
 
 # ---------------------------------------------------------------- 各意图
-def run_single(adapter, card, caliber, start, end, args):
+def run_single(adapter, card, caliber, start, end, args, meta):
     expr = metric_expr(card, caliber)
-    wh = [period_where(start, end)] + scope_filter(card, None, args.branch, args.channel)
+    wh = [period_where(start, end, meta)] + scope_filter(card, None, args.branch, args.channel, meta=meta)
     sql = f"SELECT {expr} AS value FROM {adapter.table} WHERE {' AND '.join(wh)}"
     cols, rows = adapter.execute(sql)
     v = rows[0][0]
@@ -160,8 +179,9 @@ def run_compare(adapter, card, caliber, start, end, kb, args):
     dim = args.dim or "branch"
     dcol = kb["dims"][dim]["column"]
     dname = kb["dims"][dim]["name"]
+    meta = meta_of(kb)
     expr = metric_expr(card, caliber)
-    wh = [period_where(start, end)] + scope_filter(card, dim, args.branch, args.channel, dcol)
+    wh = [period_where(start, end, meta)] + scope_filter(card, dim, args.branch, args.channel, dcol, meta=meta)
     if args.branches and dim == "branch":
         bs = ",".join(f"'{b.strip()}'" for b in args.branches.split(","))
         wh.append(f"{dcol} IN ({bs})")
@@ -177,9 +197,10 @@ def run_compare(adapter, card, caliber, start, end, kb, args):
 
 
 def run_trend(adapter, card, caliber, start, end, kb, args):
+    meta = meta_of(kb)
     expr = metric_expr(card, caliber)
-    wh = [period_where(start, end)] + scope_filter(card, None, args.branch, args.channel)
-    sql = (f"SELECT SUBSTR(trans_date, 1, 7) AS ym, {expr} AS value "
+    wh = [period_where(start, end, meta)] + scope_filter(card, None, args.branch, args.channel, meta=meta)
+    sql = (f"SELECT SUBSTR({meta['date_column']}, 1, 7) AS ym, {expr} AS value "
            f"FROM {adapter.table} WHERE {' AND '.join(wh)} "
            f"GROUP BY ym ORDER BY ym")
     cols, rows = adapter.execute(sql)
@@ -191,11 +212,11 @@ def run_trend(adapter, card, caliber, start, end, kb, args):
     }
 
 
-def run_yoy(adapter, card, caliber, start, end, args):
+def run_yoy(adapter, card, caliber, start, end, args, meta):
     expr = metric_expr(card, caliber)
-    base_where = [period_where(start, end)] + scope_filter(card, None, args.branch, args.channel)
-    last_where = [period_where(shift_year(start, -1), shift_year(end, -1))] + \
-        scope_filter(card, None, args.branch, args.channel)
+    base_where = [period_where(start, end, meta)] + scope_filter(card, None, args.branch, args.channel, meta=meta)
+    last_where = [period_where(shift_year(start, -1), shift_year(end, -1), meta)] + \
+        scope_filter(card, None, args.branch, args.channel, meta=meta)
     sql_cur = f"SELECT {expr} FROM {adapter.table} WHERE {' AND '.join(base_where)}"
     sql_pre = f"SELECT {expr} FROM {adapter.table} WHERE {' AND '.join(last_where)}"
     cur = adapter.execute(sql_cur)[1][0][0]
@@ -221,8 +242,9 @@ def run_share(adapter, card, caliber, start, end, kb, args):
     dim = args.dim or "channel"
     dcol = kb["dims"][dim]["column"]
     dname = kb["dims"][dim]["name"]
+    meta = meta_of(kb)
     expr = metric_expr(card, caliber)
-    wh = [period_where(start, end)] + scope_filter(card, dim, args.branch, args.channel, dcol)
+    wh = [period_where(start, end, meta)] + scope_filter(card, dim, args.branch, args.channel, dcol, meta=meta)
     sql = (f"SELECT {dcol} AS dim, {expr} AS value, "
            f"ROUND({expr} / NULLIF(SUM({expr}) OVER (), 0) * 100, 1) AS share "
            f"FROM {adapter.table} WHERE {' AND '.join(wh)} "
@@ -241,8 +263,9 @@ def run_topn(adapter, card, caliber, start, end, kb, args):
     dcol = kb["dims"][dim]["column"]
     dname = kb["dims"][dim]["name"]
     n = int(args.n or 5)
+    meta = meta_of(kb)
     expr = metric_expr(card, caliber)
-    wh = [period_where(start, end)] + scope_filter(card, dim, args.branch, args.channel, dcol)
+    wh = [period_where(start, end, meta)] + scope_filter(card, dim, args.branch, args.channel, dcol, meta=meta)
     sql = (f"SELECT {dcol} AS dim, {expr} AS value FROM {adapter.table} "
            f"WHERE {' AND '.join(wh)} GROUP BY {dcol} "
            f"ORDER BY value DESC LIMIT {n}")
@@ -255,7 +278,8 @@ def run_topn(adapter, card, caliber, start, end, kb, args):
     }
 
 
-def run_koujing(card, caliber):
+def run_koujing(card, caliber, meta=None):
+    core3 = "/".join((meta or meta_of({}))["core3_channels"])
     lines = [
         f"### {card['name']}({', '.join(card.get('aliases', [])[:2])})",
         f"- **定义**:{card['definition']}",
@@ -263,7 +287,7 @@ def run_koujing(card, caliber):
         f"- **口径**:{'仅承保' if card.get('caliber') == 'if_only' else '受理/承保双口径,默认承保(if_)'}",
     ]
     if card.get("channel_scope") == "core3":
-        lines.append("- **全渠道口径**:只算 个险/银保/经代 三个渠道(法人业务/其他不参与),除非明确单渠道")
+        lines.append(f"- **全渠道口径**:只算 {core3} 三个渠道(其他渠道不参与),除非明确单渠道")
     if card.get("derived"):
         lines.append("- **计算纪律**:SUM/SUM 现算,禁止对单行比率取平均")
     if card.get("related"):
@@ -321,7 +345,7 @@ def main():
     card = cards[args.metric]
 
     if args.intent == "koujing":
-        print(run_koujing(card, args.caliber))
+        print(run_koujing(card, args.caliber, meta_of(kb)))
         return
 
     if not args.period:
@@ -332,7 +356,8 @@ def main():
 
     cfg = load_config()
     adapter = get_adapter(cfg)
-    anchor = adapter.anchor_date()
+    meta = meta_of(kb)
+    anchor = adapter.anchor_date(meta["date_column"])
     start, end, plabel = resolve_period(args.period, anchor)
     caliber = pick_caliber(card, args.caliber)
 
@@ -340,7 +365,7 @@ def main():
                "yoy": run_yoy, "share": run_share, "topn": run_topn}
     fn = runners[args.intent]
     if args.intent in ("single", "yoy"):
-        result = fn(adapter, card, caliber, start, end, args)
+        result = fn(adapter, card, caliber, start, end, args, meta)
     else:
         result = fn(adapter, card, caliber, start, end, kb, args)
 

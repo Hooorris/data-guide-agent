@@ -43,7 +43,10 @@ def check_db():
     adapter = get_adapter(cfg)
     n = adapter.row_count()
     expect = cfg["datasource"].get("verify_total_rows")
-    anchor = adapter.anchor_date()
+    # 日期列从知识库 meta 取(schema 映射单一事实源,换库只改 yaml)
+    dc = ((load_knowledge("metric_cards").get("meta") or {}).get("date_column")
+          or "trans_date")
+    anchor = adapter.anchor_date(dc)
     msg = f"连通,{n:,} 行,数据锚点 {anchor}"
     if expect and n != expect:
         raise RuntimeError(f"行数 {n:,} ≠ 基准 {expect:,}(数据可能已变更)")

@@ -25,8 +25,10 @@ KPI_METRICS = ["ape", "fyp", "std_premium", "vnb"]
 PALETTE = ["#2167ae", "#5495cf", "#91bfe3", "#23366f", "#7a86a3"]
 
 
-def fetch_all(adapter, cards, branch: str | None, period: str):
-    anchor = adapter.anchor_date()
+def fetch_all(adapter, cards, branch: str | None, period: str, kb: dict):
+    meta = Q.meta_of(kb)
+    ch_col, dc = meta["channel_column"], meta["date_column"]
+    anchor = adapter.anchor_date(dc)
     start, end, plabel = Q.resolve_period(period, anchor)
 
     # KPI 卡:本期值 + 同比
@@ -35,11 +37,11 @@ def fetch_all(adapter, cards, branch: str | None, period: str):
         card = cards[mid]
         caliber = Q.pick_caliber(card, None)
         expr = Q.metric_expr(card, caliber)
-        wh = [Q.period_where(start, end)] + Q.scope_filter(card, None, branch, None)
+        wh = [Q.period_where(start, end, meta)] + Q.scope_filter(card, None, branch, None, meta=meta)
         cur = adapter.execute(
             f"SELECT {expr} FROM {adapter.table} WHERE {' AND '.join(wh)}")[1][0][0] or 0
-        wh_pre = [Q.period_where(Q.shift_year(start, -1), Q.shift_year(end, -1))] + \
-            Q.scope_filter(card, None, branch, None)
+        wh_pre = [Q.period_where(Q.shift_year(start, -1), Q.shift_year(end, -1), meta)] + \
+            Q.scope_filter(card, None, branch, None, meta=meta)
         prev = adapter.execute(
             f"SELECT {expr} FROM {adapter.table} WHERE {' AND '.join(wh_pre)}")[1][0][0]
         rate = round((cur - prev) / prev * 100, 1) if prev else None
@@ -49,10 +51,10 @@ def fetch_all(adapter, cards, branch: str | None, period: str):
     # 渠道 FYP 占比
     fyp = cards["fyp"]
     expr = Q.metric_expr(fyp, "if")
-    wh = [Q.period_where(start, end)] + Q.scope_filter(fyp, "channel", branch, None)
+    wh = [Q.period_where(start, end, meta)] + Q.scope_filter(fyp, "channel", branch, None, meta=meta)
     ch = adapter.execute(
-        f"SELECT channel_name, {expr} FROM {adapter.table} WHERE {' AND '.join(wh)} "
-        f"GROUP BY channel_name ORDER BY 2 DESC")
+        f"SELECT {ch_col}, {expr} FROM {adapter.table} WHERE {' AND '.join(wh)} "
+        f"GROUP BY {ch_col} ORDER BY 2 DESC")
     channels = {"labels": [r[0] for r in ch[1]],
                 "values": [float(r[1] or 0) for r in ch[1]]}
 
@@ -61,9 +63,9 @@ def fetch_all(adapter, cards, branch: str | None, period: str):
     for mid, key in (("ape", "ape"), ("fyp", "fyp")):
         card = cards[mid]
         expr = Q.metric_expr(card, "if")
-        wh = [Q.period_where(start, end)] + Q.scope_filter(card, None, branch, None)
+        wh = [Q.period_where(start, end, meta)] + Q.scope_filter(card, None, branch, None, meta=meta)
         _, rows = adapter.execute(
-            f"SELECT SUBSTR(trans_date,1,7) AS ym, {expr} FROM {adapter.table} "
+            f"SELECT SUBSTR({dc},1,7) AS ym, {expr} FROM {adapter.table} "
             f"WHERE {' AND '.join(wh)} GROUP BY ym ORDER BY ym")
         if not trend["labels"]:
             trend["labels"] = [r[0] for r in rows]
@@ -159,7 +161,7 @@ def main():
     cards = {m["id"]: m for m in kb["metrics"]}
 
     scope = args.branch if args.branch else "全公司"
-    plabel, kpis, channels, trend = fetch_all(adapter, cards, args.branch, args.period)
+    plabel, kpis, channels, trend = fetch_all(adapter, cards, args.branch, args.period, kb)
 
     kpi_html = ""
     for k in kpis:

@@ -89,6 +89,11 @@ datasource:
 注意:查询模板针对 `policy_detail` 的列结构(考核年制、if_/sm_ 双口径);
 换业务库时需同步调整 `knowledge/metric_cards.yaml` 的列映射。
 
+**schema 列名映射已参数化**(换库零改码):只需改 `metric_cards.yaml` 顶部的 `meta` 段
+(`date_column` / `branch_column` / `channel_column` / `core3_channels`),
+`query.py` / `report_teaser.py` / `doctor.py` 全部从 meta 取列名,代码零改动;
+再按新库的指标与维度重写卡片(`metrics` / `dims`)即可。
+
 ## 维护约定
 
 - **新增指标**:在 `metric_cards.yaml` 追加卡片(query.py 自动可查),主题包按需引用;doctor 会校验交叉引用

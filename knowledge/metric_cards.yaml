@@ -8,6 +8,13 @@
 #   - 派生比率必须 SUM/SUM 现算,禁止对单行比率取平均
 # ===================================================================
 
+# 数据源 schema 映射(换库时只改这一段,代码全部从这里取列名,不再写死)
+meta:
+  date_column: trans_date        # 交易日期列(text ISO YYYY-MM-DD);趋势按 SUBSTR(date_column,1,7) 取月,锚点取 MAX(date_column)
+  branch_column: branch_name     # 机构列(--branch 过滤用)
+  channel_column: channel_name   # 渠道列(--channel 过滤 / channel_scope=core3 限定用)
+  core3_channels: [个险, 银保, 经代]  # 卡片标注 channel_scope=core3 时,全渠道口径只算这三个渠道
+
 # 可下钻维度字典(菜单引导的选项来源)
 dims:
   branch:

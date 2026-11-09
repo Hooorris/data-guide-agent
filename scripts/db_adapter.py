@@ -36,12 +36,15 @@ class DataSourceAdapter:
     def execute(self, sql: str, params: tuple = ()):  # -> (columns, rows)
         raise NotImplementedError
 
-    def anchor_date(self) -> str:
-        """时间锚点:'今天'的日期串 YYYY-MM-DD。auto = 取 MAX(trans_date)。"""
+    def anchor_date(self, date_col: str = "trans_date") -> str:
+        """时间锚点:'今天'的日期串 YYYY-MM-DD。auto = 取 MAX(日期列)。
+
+        date_col 由调用方从 metric_cards.yaml 的 meta.date_column 传入,
+        保持 schema 映射单一事实源;换库只改 yaml。"""
         anchor = (self.cfg.get("anchor") or "auto")
         if anchor != "auto":
             return anchor
-        _, rows = self.execute(f"SELECT MAX(trans_date) FROM {self.table}")
+        _, rows = self.execute(f"SELECT MAX({date_col}) FROM {self.table}")
         return rows[0][0]
 
     def row_count(self) -> int:
