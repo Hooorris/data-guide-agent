@@ -1,0 +1,44 @@
+{
+  "name": "data-guide-agent",
+  "version": "1.0.0",
+  "description": "Guided data analysis expert over a desensitized policy detail database: menu-driven metric selection, one-layer-at-a-time drill-down, and cumulative table-plus-chart archive reports.",
+  "author": {
+    "name": "Hooorris",
+    "email": "48744039+Hooorris@users.noreply.github.com"
+  },
+  "agents": ["./agents/data-guide-agent.md"],
+  "skills": ["./skills/data-guide-agent"],
+
+  "expertType": "agent",
+  "agentName": "data-guide-agent",
+
+  "displayName": {
+    "en": "Data Guide",
+    "zh": "问数向导"
+  },
+  "profession": {
+    "en": "Guided Data Analysis Expert",
+    "zh": "引导式数据分析专家"
+  },
+  "displayDescription": {
+    "en": "A guided data analysis expert over the desensitized policy detail database: menu-driven metric selection, layered drill-down, and cumulative HTML archive reports with tables and charts.",
+    "zh": "面向脱敏保单明细库的引导式数据分析：指标菜单引导选定口径，逐层下钻归因，表图一体累积成多轮分析档案。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "04-DataAI",
+  "defaultInitPrompt": {
+    "zh": "你好，我想查数，先告诉我怎么用你",
+    "en": "Hi, I want to query some data. Tell me how to use you first"
+  },
+  "plugin": "data-guide-agent",
+  "tags": [
+    { "en": "Business Analysis", "zh": "经营分析" },
+    { "en": "Data Query", "zh": "数据查询" },
+    { "en": "Root Cause Drill-down", "zh": "归因下钻" }
+  ],
+  "quickPrompts": [
+    { "en": "Hi, I want to query some data. Tell me how to use you first", "zh": "你好，我想查数，先告诉我怎么用你" },
+    { "en": "Why did standard premium drop YoY this quarter? Drill down layer by layer.", "zh": "本季度标保同比为什么掉了？帮我逐层归因" },
+    { "en": "Compare VNB across channels and check the value mix.", "zh": "按渠道对比一下 VNB，看看谁的价值含量高" }
+  ]
+}

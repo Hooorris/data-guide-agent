@@ -123,11 +123,12 @@ python3 scripts/final_report.py --session <id> --title "个险渠道价值专题
 > **⚠️ 必须先 `cd <skill目录>` 再执行(踩过坑)**:`config.yaml` 的 `output.dir` 是 `./output`,session 状态也存在 `./output/.sessions/` 下——**两者都相对当前工作目录**。在别的目录跑会静默新建一套 `./output/`:同一个 `--session` 却"从第 1 节重新开始"。
 > 已跑岔的补救:把新目录 `.sessions/<id>.json` 里的 `sections` 合并进 skill 目录的同名状态文件,再 `save_state()` + `build_html()`(两行都要调),最后删掉多出来的 `./output/`。
 
-> **⚠️ Python 解释器选择(踩过坑)**:系统 `python3` 常缺 pyyaml/psycopg,报 `ModuleNotFoundError: No module named 'yaml'` 时**不要** pip install 污染系统环境,改用受管 venv:
+> **⚠️ Python 解释器选择(踩过坑)**:系统 `python3` 常缺 pyyaml/psycopg,报 `ModuleNotFoundError: No module named 'yaml'` 时**不要** pip install 污染系统环境,改用专用 venv:
 > ```bash
-> /Users/horris/.workbuddy/binaries/python/envs/default/bin/python scripts/query.py ...
+> python3 -m venv ~/.venvs/dga && ~/.venvs/dga/bin/pip install "psycopg[binary]" pyyaml
+> ~/.venvs/dga/bin/python scripts/query.py ...
 > ```
-> 判断顺序:`python3 scripts/doctor.py` 通过 → 直接用;报缺包 → 换上面的绝对路径重跑。
+> 判断顺序:`python3 scripts/doctor.py` 通过 → 直接用;报缺包 → 换上面的 venv 解释器重跑。
 
 ## 结果呈现(仅数据分析模式;快查只出文本)
 
