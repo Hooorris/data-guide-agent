@@ -14,10 +14,10 @@ datasource:
   # 目前内置 postgres;新增数据源(sqlite/duckdb/mysql)需在 db_adapter.py
   # 实现同名接口并注册,然后改这里的 type 即可切换。
   type: postgres
-  host: "127.0.0.1"          # 本机/内网 PG 地址;真实地址写进 config.local.yaml
+  host: "127.0.0.1"          # ⚠️ 占位;真实地址写进 config.local.yaml(不入库)
   port: 5432
-  name: analytics_demo
-  user: demo_reader          # 只读账号
+  name: "<DB_NAME>"          # ⚠️ 占位;真实库名写进 config.local.yaml
+  user: "<READONLY_USER>"    # ⚠️ 占位;真实只读账号写进 config.local.yaml
   password: ""               # ⚠️ 留空;真实口令写进 config.local.yaml 或 DGA_DB_PASSWORD
   sslmode: prefer
   connect_timeout: 10
