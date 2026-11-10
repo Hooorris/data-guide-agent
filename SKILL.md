@@ -39,7 +39,8 @@ python3 scripts/query.py --intent menu
 - **第一遍必须浅**:首轮只做「一个指标 + 一个维度 + 一个期间」的表层查询(通常 1 条 `single`/`compare`/`topn`),摆规模、结构、同比。
 - **查询预算**:首轮 ≤ 2 条查询(菜单 + 1 条查数);此后每轮 ≤ 2 条,且必须等用户明确说"接着/继续/拆一下"才开下一轮。
 - **指标/维度/话术从知识库取**:以 `knowledge/metric_cards.yaml`、`knowledge/theme_packs.yaml` 为准,不凭记忆编口径。
-- **表图一次成型**:每次查数必须带 `--format html`;禁止先出表再单独问"要不要出图"。
+- **表图一次成型（仅分析模式）**:进入数据分析/模板模式后，每次查数必须带 `--format html`;禁止先出表再单独问"要不要出图"。
+- **快查纯出数（2026-11-10 用户新规）**:仅问数路径**不带 `--format html`、不带 `--session`**，只用 CLI 默认的 markdown 文本输出，在聊天里转述；不落 HTML、不开档案。用户说"分析一下/出报告/整理成报告/全面看看"（即切换到数据分析）时，才带 `--format html` + `--session` 起档案；此前快查轮次在第一节 `--bridge` 里一句话追述，不补建。
 
 ### 出数即停(本轮终点)
 
@@ -103,7 +104,7 @@ python3 scripts/final_report.py --session <id> --title "个险渠道价值专题
 
 ## 意图清单与调用
 
-| 意图 | 必填槽位 | CLI 示例(统一带 `--format html`) |
+| 意图 | 必填槽位 | CLI 示例(快查不带 `--format html`;分析模式统一带) |
 |---|---|---|
 | 指标菜单 menu | (无) | `query.py --intent menu`(纯文本;未定指标时的第一步) |
 | 单指标查询 single | metric, period | `query.py --intent single --metric ape --period 2026YTD --format html` |
@@ -115,7 +116,7 @@ python3 scripts/final_report.py --session <id> --title "个险渠道价值专题
 | 口径问答 koujing | metric | `query.py --intent koujing --metric nbm`(纯文本,无产物) |
 
 可选参数:`--branch Branch_01`(或逗号分隔多家)、`--channel 银保`、`--caliber sm`(受理口径)、`--format json`(机读)、`--chart line|bar|pie|none`、`--out 路径`。
-**档案参数(推荐每轮都带)**:`--session <会话id>`、`--section-title "本节标题"`、`--bridge "与上一节的衔接说明"`。
+**档案参数(仅分析模式,进入后每轮都带)**:`--session <会话id>`、`--section-title "本节标题"`、`--bridge "与上一节的衔接说明"`。
 
 **执行方式**:用 Bash 运行 `python3 <skill目录>/scripts/query.py ...`。依赖:psycopg、pyyaml;首次运行先跑 `scripts/doctor.py` 自检。
 
@@ -128,7 +129,9 @@ python3 scripts/final_report.py --session <id> --title "个险渠道价值专题
 > ```
 > 判断顺序:`python3 scripts/doctor.py` 通过 → 直接用;报缺包 → 换上面的绝对路径重跑。
 
-## 结果呈现(表图一体 + 同一份档案累积)
+## 结果呈现(仅数据分析模式;快查只出文本)
+
+> **适用范围**:本节全部规则只在数据分析/模板模式下生效。仅问数快查不产 HTML、不开 session,CLI 默认 markdown 输出直接在聊天里转述即可。
 
 **两条硬要求:① 数据表和图表永远写在同一个产物里;② 同一次分析的所有轮次落在同一份档案里。**
 
